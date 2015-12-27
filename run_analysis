@@ -1,0 +1,44 @@
+
+##Function to take filename string fragment
+##Read the related data into data frames
+##Name the columns and bind them together
+ReadAndLabel <- function(name) {
+  #read data and subject/activity ids from 
+  subject<-read.table(paste(name, "/subject_", name, ".txt", sep = ""), header=FALSE)
+  data<-read.table(paste(name, "/X_", name, ".txt", sep = ""), header=FALSE)
+  activity<-read.table(paste(name, "/y_", name, ".txt", sep = ""), header=FALSE)
+  
+  colnames(activity)<- "activity_id"
+  colnames(subject)<- "subject_id"
+  colnames(data)<- read.table("features.txt")[,2]
+  
+  cbind(subject, activity, data)
+  
+}
+
+##Read and label "test" and "train" data
+test_movement_data<- ReadAndLabel("test")
+train_movement_data<- ReadAndLabel("train")
+
+##row bind test and train data together and remove uneeded variables
+movement_data<-rbind(test_movement_data, train_movement_data)
+
+
+#Grep the names of columns with either "mean" or "std" ignoring case
+mean_std_colnames<- grep("mean|std",names(movement_data),ignore.case=T, value = T)
+
+#subset movement_data
+movement_data_mean_std<- movement_data[, c("subject_id", "activity_id", mean_std_colnames) ]
+                        
+
+#read activity labels from file  with column names defined
+#Merge with movement_data_mean_std
+activity_labels<-read.table("activity_labels.txt", col.names = c("activity_id", "activity_name"), header=FALSE)
+movement_data_mean_std<-merge(activity_labels, movement_data_mean_std, by.x="activity_id", by.y="activity_id", all = T)
+
+#Calculate variable means grouped by activity and by subject
+means_by_activity_by_subject<-aggregate(movement_data_mean_std, 
+                                        by = list(movement_data_mean_std$subject_id, 
+                                                  movement_data_mean_std$activity_id), 
+                                        FUN = mean)
+write.table(means_by_activity_by_subject, "tidy.txt")
